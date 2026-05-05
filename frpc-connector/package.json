@@ -1,19 +1,19 @@
 {
-  "name": "frpc-connector",
+  "name": "bd8ftc-frpc-connector",
   "version": "1.0.0",
   "type": "module",
   "scripts": {
     "build": "node -e \"console.log('no build needed')\""
   },
   "tx5drPlugin": {
-    "pluginName": "网页内网穿透-Windows版",
-    "title": "网页内网穿透-Windows版",
-    "description": "自动下载配置并通过 FRPC 启动网页内网穿透，适用于 Windows。",
+    "pluginName": "bd8ftc-frpc-connector",
+    "title": "websdr.bd8ftc.de FRP穿透服务",
+    "description": "接入 websdr.bd8ftc.de FRP穿透服务，按登记呼号下载专属 frpc 配置，并启动本机 frpc 客户端。",
     "minHostVersion": "1.0.0",
     "entry": "src/index.js",
     "include": [
       { "from": "src/index.js", "to": "plugin.js" },
-      { "from": "frpc.exe", "to": "frpc.exe" },
+      { "from": "bin", "to": "bin" },
       { "from": "README.md", "to": "README.md" }
     ]
   }
