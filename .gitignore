@@ -8,3 +8,9 @@ coverage/
 .env.*
 .artifacts/
 dist/
+
+# FRPC connector runtime files generated during local testing.
+frpc-connector/frpc.pid
+frpc-connector/frpc.toml
+frpc-connector/run-frpc.sh
+frpc-connector/run-frpc.bat
