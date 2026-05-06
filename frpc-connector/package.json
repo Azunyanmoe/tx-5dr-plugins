@@ -12,7 +12,7 @@
     "minHostVersion": "1.0.0",
     "entry": "src/index.js",
     "include": [
-      { "from": "src/index.js", "to": "plugin.js" },
+      { "from": "src/index.js", "to": "index.js" },
       { "from": "bin", "to": "bin" },
       { "from": "README.md", "to": "README.md" }
     ]
