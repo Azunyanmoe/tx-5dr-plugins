@@ -5,7 +5,24 @@ import { createRenderConfig } from '../shared/rendering';
 import type { PageConfigResponse, RenderConfig } from '../shared/types';
 
 const PLUGIN_HEIGHT_STORAGE_PREFIX = 'tx5dr:web-iframe-embed:height:';
+const EMBED_KEYBOARD_MESSAGE_TYPE = 'tx5dr:web-iframe-embed:keyboard';
 const MIN_HEIGHT = 140;
+
+type KeyboardEventType = 'keydown' | 'keyup';
+
+interface KeyboardForwardPayload {
+  type: KeyboardEventType;
+  code: string;
+  key: string;
+  repeat: boolean;
+  altKey: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
+  location: number;
+}
+
+let activeEmbedCleanup: (() => void) | null = null;
 
 function applyTheme(theme: 'dark' | 'light'): void {
   document.documentElement.dataset.tx5drTheme = theme;
@@ -94,6 +111,155 @@ function renderError(container: HTMLElement, message: string, detail?: string): 
   node.className = 'plugin-error';
   node.textContent = detail ? `${message}\n${detail}` : message;
   container.appendChild(node);
+}
+
+function cleanupActiveEmbed(): void {
+  activeEmbedCleanup?.();
+  activeEmbedCleanup = null;
+}
+
+function getFrameWindow(frame: HTMLIFrameElement): Window | null {
+  try {
+    return frame.contentWindow;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeKeyboardEventType(value: unknown): KeyboardEventType | null {
+  return value === 'keydown' || value === 'keyup' ? value : null;
+}
+
+function payloadFromKeyboardEvent(event: KeyboardEvent): KeyboardForwardPayload {
+  return {
+    type: normalizeKeyboardEventType(event.type) ?? 'keydown',
+    code: event.code,
+    key: event.key,
+    repeat: event.repeat,
+    altKey: event.altKey,
+    ctrlKey: event.ctrlKey,
+    metaKey: event.metaKey,
+    shiftKey: event.shiftKey,
+    location: event.location,
+  };
+}
+
+function payloadFromPostMessage(data: unknown): KeyboardForwardPayload | null {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) {
+    return null;
+  }
+
+  const record = data as Record<string, unknown>;
+  if (record.type !== EMBED_KEYBOARD_MESSAGE_TYPE) {
+    return null;
+  }
+
+  const eventType = normalizeKeyboardEventType(record.eventType);
+  if (!eventType || typeof record.code !== 'string') {
+    return null;
+  }
+
+  return {
+    type: eventType,
+    code: record.code,
+    key: typeof record.key === 'string' ? record.key : '',
+    repeat: Boolean(record.repeat),
+    altKey: Boolean(record.altKey),
+    ctrlKey: Boolean(record.ctrlKey),
+    metaKey: Boolean(record.metaKey),
+    shiftKey: Boolean(record.shiftKey),
+    location: typeof record.location === 'number' && Number.isFinite(record.location)
+      ? record.location
+      : 0,
+  };
+}
+
+function dispatchKeyboardToPluginHost(payload: KeyboardForwardPayload): boolean {
+  const event = new KeyboardEvent(payload.type, {
+    key: payload.key,
+    code: payload.code,
+    location: payload.location,
+    repeat: payload.repeat,
+    altKey: payload.altKey,
+    ctrlKey: payload.ctrlKey,
+    metaKey: payload.metaKey,
+    shiftKey: payload.shiftKey,
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+  });
+
+  return !window.dispatchEvent(event);
+}
+
+function installNestedIframeKeyboardBridge(frame: HTMLIFrameElement): () => void {
+  let directCleanup: (() => void) | null = null;
+
+  const detachDirectBridge = () => {
+    directCleanup?.();
+    directCleanup = null;
+  };
+
+  const attachDirectBridge = () => {
+    detachDirectBridge();
+    const frameWindow = getFrameWindow(frame);
+    if (!frameWindow) {
+      return;
+    }
+
+    const forwardDirectEvent = (event: KeyboardEvent) => {
+      const consumed = dispatchKeyboardToPluginHost(payloadFromKeyboardEvent(event));
+      if (consumed) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+      }
+    };
+    const options: AddEventListenerOptions = { capture: true };
+
+    try {
+      frameWindow.addEventListener('keydown', forwardDirectEvent, options);
+      frameWindow.addEventListener('keyup', forwardDirectEvent, options);
+    } catch {
+      return;
+    }
+
+    directCleanup = () => {
+      try {
+        frameWindow.removeEventListener('keydown', forwardDirectEvent, options);
+        frameWindow.removeEventListener('keyup', forwardDirectEvent, options);
+      } catch {
+        // The nested frame may have navigated or switched origin before cleanup.
+      }
+    };
+  };
+
+  const handleFrameLoad = () => {
+    attachDirectBridge();
+  };
+
+  const handleKeyboardMessage = (event: MessageEvent) => {
+    if (event.source !== getFrameWindow(frame)) {
+      return;
+    }
+
+    const payload = payloadFromPostMessage(event.data);
+    if (!payload) {
+      return;
+    }
+
+    dispatchKeyboardToPluginHost(payload);
+  };
+
+  frame.addEventListener('load', handleFrameLoad);
+  window.addEventListener('message', handleKeyboardMessage);
+  attachDirectBridge();
+
+  return () => {
+    detachDirectBridge();
+    frame.removeEventListener('load', handleFrameLoad);
+    window.removeEventListener('message', handleKeyboardMessage);
+  };
 }
 
 function normalizeText(input: string | null | undefined): string {
@@ -261,6 +427,8 @@ async function applyRenderConfig(
   container: HTMLElement,
   renderConfig: RenderConfig,
 ): Promise<void> {
+  cleanupActiveEmbed();
+
   if (renderConfig.mode === 'video') {
     await renderVideo(container, renderConfig);
     return;
@@ -350,8 +518,10 @@ function renderIframe(container: HTMLElement, src: string): void {
   ].join('; ');
   frame.loading = 'eager';
   container.appendChild(frame);
+  activeEmbedCleanup = installNestedIframeKeyboardBridge(frame);
 
   const fail = (detail?: string) => {
+    cleanupActiveEmbed();
     renderError(container, t('iframeLoadFailed'), detail ?? src);
   };
 
@@ -455,6 +625,7 @@ async function main(): Promise<void> {
   window.tx5dr.onPush('configUpdated', handleConfigUpdated);
 
   window.addEventListener('beforeunload', () => {
+    cleanupActiveEmbed();
     retryTimers.forEach((timerId) => window.clearTimeout(timerId));
     window.removeEventListener('focus', refresh);
     window.removeEventListener('pageshow', refresh);
