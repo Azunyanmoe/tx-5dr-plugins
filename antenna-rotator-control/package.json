@@ -1,0 +1,73 @@
+{
+  "name": "tx5dr-plugin-antenna-rotator-control",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node ./node_modules/typescript/bin/tsc && node ./node_modules/vite/bin/vite.js build --config ui/vite.config.ts",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "dev:server": "node ./node_modules/typescript/bin/tsc --watch",
+    "dev:ui": "node ./node_modules/vite/bin/vite.js build --watch --config ui/vite.config.ts"
+  },
+  "tx5drPlugin": {
+    "pluginName": "antenna-rotator-control",
+    "title": "Antenna Rotator Control",
+    "description": "Controls Hamlib-compatible azimuth antenna rotators from the RadioControl toolbar.",
+    "minHostVersion": "1.0.0",
+    "author": "TX-5DR",
+    "license": "GPL-3.0-only",
+    "repository": "https://github.com/boybook/tx-5dr-plugins",
+    "homepage": "https://tx5dr.com/plugins/antenna-rotator-control",
+    "categories": [
+      "radio",
+      "hardware",
+      "utility"
+    ],
+    "keywords": [
+      "hamlib",
+      "rotator",
+      "antenna",
+      "azimuth",
+      "rotctld"
+    ],
+    "entry": "dist/index.js",
+    "include": [
+      {
+        "from": "dist/index.js",
+        "to": "index.js"
+      },
+      {
+        "from": "src/locales",
+        "to": "locales"
+      },
+      {
+        "from": "dist/ui",
+        "to": "ui"
+      }
+    ]
+  },
+  "devDependencies": {
+    "@tx5dr/plugin-api": "^1.7.5",
+    "@types/node": "^22.15.21",
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.0.0",
+    "vite": "^6.3.4"
+  },
+  "peerDependencies": {
+    "hamlib": "0.7.1"
+  },
+  "peerDependenciesMeta": {
+    "hamlib": {
+      "optional": true
+    }
+  }
+}
