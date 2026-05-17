@@ -600,9 +600,10 @@ async function handlePageMessage(action: string, data: unknown): Promise<unknown
 
 const plugin: PluginDefinition = {
   name: PLUGIN_NAME,
-  version: '0.1.0',
+  version: '0.1.1',
   type: 'utility',
   instanceScope: 'global',
+  permissions: ['host:hamlib'],
   description: 'pluginDescription',
   storage: { scopes: ['global'] },
   settings: {
