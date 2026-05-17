@@ -62,6 +62,7 @@ interface PageConfigResponse {
   pageId: PageId;
   placement: Placement;
   url: string;
+  rememberAspectRatio: boolean;
 }
 
 function requireOperatorTarget(requestContext: PluginUIRequestContext): string {
@@ -121,6 +122,10 @@ function getConfiguredUrl(ctx: { config: Record<string, unknown> }, key: ConfigK
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function shouldRememberAspectRatio(ctx: { config: Record<string, unknown> }): boolean {
+  return ctx.config.rememberAspectRatio === true;
+}
+
 function buildPageConfig(ctx: PluginContext, pageId: string, tabId?: string): PageConfigResponse {
   if (pageId === VOICE_RIGHT_DYNAMIC_PAGE_ID) {
     const tab = getVoiceRightTabs(ctx).find((entry) => entry.id === tabId);
@@ -128,6 +133,7 @@ function buildPageConfig(ctx: PluginContext, pageId: string, tabId?: string): Pa
       pageId: VOICE_RIGHT_DYNAMIC_PAGE_ID,
       placement: 'voice-right-top',
       url: tab?.url ?? '',
+      rememberAspectRatio: shouldRememberAspectRatio(ctx),
     };
   }
 
@@ -136,6 +142,7 @@ function buildPageConfig(ctx: PluginContext, pageId: string, tabId?: string): Pa
     pageId: panel.pageId,
     placement: panel.placement,
     url: getConfiguredUrl(ctx, panel.configKey),
+    rememberAspectRatio: shouldRememberAspectRatio(ctx),
   };
 }
 
@@ -188,7 +195,7 @@ function notifyConfigUpdated(ctx: PluginContext): void {
 
 const plugin: PluginDefinition = {
   name: WEB_IFRAME_EMBED_PLUGIN_NAME,
-  version: '1.2.2',
+  version: '1.2.3',
   type: 'utility',
   description: 'pluginDescription',
 
@@ -205,6 +212,13 @@ const plugin: PluginDefinition = {
       default: '',
       label: 'embedNoticeLabel',
       description: 'embedNoticeDescription',
+      scope: 'global',
+    },
+    rememberAspectRatio: {
+      type: 'boolean',
+      default: false,
+      label: 'rememberAspectRatioLabel',
+      description: 'rememberAspectRatioDescription',
       scope: 'global',
     },
     operatorLayoutGuide: {

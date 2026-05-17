@@ -5,6 +5,8 @@
   "globalLayoutGuideDescription": "These URLs are shared by all operators.\n\n[Main screen]\nLeft content | Center content | Right extension pane\n\n[Voice mode]\nLeft: above the frequency control panel\nRight: the whole upper-right panel\n\n[CW mode]\nLeft: above the frequency control panel",
   "embedNoticeLabel": "Loading behavior",
   "embedNoticeDescription": "Regular web pages are embedded directly. Stream URLs switch to the built-in video player automatically. Autoplay is muted by default, and some sites may still refuse embedding because of their own policy.",
+  "rememberAspectRatioLabel": "Remember aspect ratio",
+  "rememberAspectRatioDescription": "When enabled, manually resizing a supported panel saves its width/height ratio instead of only its height, then updates height automatically when the panel width changes.",
   "operatorLayoutGuideLabel": "Operator placement guide",
   "operatorLayoutGuideDescription": "This URL only applies to the current operator.\n\n[Operator card]\nThe full card content area renders the configured page here.",
   "operatorCardUrlLabel": "Operator card page URL",

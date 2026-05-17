@@ -5,6 +5,7 @@ import { createRenderConfig } from '../shared/rendering';
 import type { PageConfigResponse, RenderConfig } from '../shared/types';
 
 const PLUGIN_HEIGHT_STORAGE_PREFIX = 'tx5dr:web-iframe-embed:height:';
+const PLUGIN_ASPECT_RATIO_STORAGE_PREFIX = 'tx5dr:web-iframe-embed:aspect-ratio:';
 const EMBED_KEYBOARD_MESSAGE_TYPE = 'tx5dr:web-iframe-embed:keyboard';
 const MIN_HEIGHT = 140;
 
@@ -52,6 +53,10 @@ function getHeightStorageKey(): string {
   return `${PLUGIN_HEIGHT_STORAGE_PREFIX}${getPageId()}`;
 }
 
+function getAspectRatioStorageKey(): string {
+  return `${PLUGIN_ASPECT_RATIO_STORAGE_PREFIX}${getPageId()}`;
+}
+
 function clampHeight(height: number): number {
   if (!Number.isFinite(height)) {
     return getDefaultHeight();
@@ -74,6 +79,31 @@ function loadStoredHeight(): number {
 function saveStoredHeight(height: number): void {
   try {
     window.localStorage.setItem(getHeightStorageKey(), String(clampHeight(height)));
+  } catch {
+    // Ignore storage failures; resizing should still work for the current session.
+  }
+}
+
+function loadStoredAspectRatio(): number | null {
+  try {
+    const raw = window.localStorage.getItem(getAspectRatioStorageKey());
+    if (!raw) {
+      return null;
+    }
+    const value = Number.parseFloat(raw);
+    return Number.isFinite(value) && value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredAspectRatio(aspectRatio: number): void {
+  if (!Number.isFinite(aspectRatio) || aspectRatio <= 0) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(getAspectRatioStorageKey(), String(aspectRatio));
   } catch {
     // Ignore storage failures; resizing should still work for the current session.
   }
@@ -352,14 +382,27 @@ function inspectFrameFailure(
   }
 }
 
+interface ResizeController {
+  setRememberAspectRatio: (enabled: boolean) => void;
+  cleanup: () => void;
+}
+
 function installResizeHandle(
   shell: HTMLDivElement,
   handle: HTMLDivElement,
-): void {
+): ResizeController {
   let currentHeight = loadStoredHeight();
   let dragStartY = 0;
   let dragStartHeight = 0;
   let activePointerId: number | null = null;
+  let rememberAspectRatio = false;
+  let currentAspectRatio = loadStoredAspectRatio();
+  let lastObservedWidth = 0;
+
+  const getShellWidth = () => {
+    const rectWidth = shell.getBoundingClientRect().width;
+    return Number.isFinite(rectWidth) && rectWidth > 0 ? rectWidth : shell.clientWidth;
+  };
 
   const applyHeight = (nextHeight: number, persist = false) => {
     currentHeight = clampHeight(nextHeight);
@@ -370,12 +413,40 @@ function installResizeHandle(
     }
   };
 
+  const saveCurrentAspectRatio = () => {
+    const width = getShellWidth();
+    if (width <= 0 || currentHeight <= 0) {
+      return;
+    }
+    currentAspectRatio = width / currentHeight;
+    saveStoredAspectRatio(currentAspectRatio);
+  };
+
+  const ensureAspectRatio = () => {
+    currentAspectRatio = loadStoredAspectRatio();
+    if (currentAspectRatio !== null) {
+      return;
+    }
+    saveCurrentAspectRatio();
+  };
+
+  const applyAspectRatioHeight = (width = getShellWidth()) => {
+    if (!currentAspectRatio || width <= 0) {
+      return;
+    }
+    applyHeight(width / currentAspectRatio);
+  };
+
   const finishDrag = () => {
     if (activePointerId === null) {
       return;
     }
     activePointerId = null;
-    saveStoredHeight(currentHeight);
+    if (rememberAspectRatio) {
+      saveCurrentAspectRatio();
+    } else {
+      saveStoredHeight(currentHeight);
+    }
   };
 
   handle.addEventListener('pointerdown', (event) => {
@@ -407,7 +478,43 @@ function installResizeHandle(
     finishDrag();
   });
 
+  const resizeObserver = new ResizeObserver(() => {
+    if (!rememberAspectRatio) {
+      return;
+    }
+
+    const nextWidth = getShellWidth();
+    if (nextWidth <= 0 || Math.abs(nextWidth - lastObservedWidth) < 1) {
+      return;
+    }
+
+    lastObservedWidth = nextWidth;
+    ensureAspectRatio();
+    applyAspectRatioHeight(nextWidth);
+  });
+  resizeObserver.observe(shell);
+
   applyHeight(currentHeight, false);
+
+  return {
+    setRememberAspectRatio(enabled: boolean) {
+      if (!enabled) {
+        if (rememberAspectRatio) {
+          saveStoredHeight(currentHeight);
+        }
+        rememberAspectRatio = false;
+        return;
+      }
+
+      rememberAspectRatio = true;
+      lastObservedWidth = getShellWidth();
+      ensureAspectRatio();
+      applyAspectRatioHeight(lastObservedWidth);
+    },
+    cleanup() {
+      resizeObserver.disconnect();
+    },
+  };
 }
 
 function getRenderKey(config: RenderConfig): string {
@@ -572,11 +679,14 @@ async function main(): Promise<void> {
 
   const layout = createSurface();
   root.replaceChildren(layout.shell);
+  let resizeController: ResizeController | null = null;
   if (layout.resizeHandle) {
-    installResizeHandle(layout.shell, layout.resizeHandle);
+    resizeController = installResizeHandle(layout.shell, layout.resizeHandle);
   }
   let lastRenderKey = '';
   const renderResponse = async (response: PageConfigResponse) => {
+    resizeController?.setRememberAspectRatio(response.rememberAspectRatio === true);
+
     const renderConfig = createRenderConfig(response.url);
     const nextRenderKey = getRenderKey(renderConfig);
     if (nextRenderKey === lastRenderKey) {
@@ -626,6 +736,7 @@ async function main(): Promise<void> {
 
   window.addEventListener('beforeunload', () => {
     cleanupActiveEmbed();
+    resizeController?.cleanup();
     retryTimers.forEach((timerId) => window.clearTimeout(timerId));
     window.removeEventListener('focus', refresh);
     window.removeEventListener('pageshow', refresh);

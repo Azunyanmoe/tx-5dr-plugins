@@ -12,6 +12,7 @@ export interface PageConfigResponse {
   pageId: string;
   placement: Placement;
   url: string;
+  rememberAspectRatio: boolean;
 }
 
 export type RenderConfig =

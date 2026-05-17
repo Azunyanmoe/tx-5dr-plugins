@@ -5,6 +5,8 @@
   "globalLayoutGuideDescription": "这些 URL 对所有操作员共用。\n\n[主界面]\n左侧内容 | 中间内容 | 右侧扩展面板\n\n[语音模式]\n左侧：频率控制面板上方\n右侧：整个右侧上方面板\n\n[CW 模式]\n左侧：频率控制面板上方",
   "embedNoticeLabel": "加载规则说明",
   "embedNoticeDescription": "普通网页会直接嵌入显示；流媒体 URL 会自动切换到视频播放器。默认静音自动播放，但部分站点仍可能因自身策略拒绝被嵌入。",
+  "rememberAspectRatioLabel": "记住宽高比",
+  "rememberAspectRatioDescription": "开启后，支持拖拽的面板会保存宽度/高度比例，而不是只保存高度；当面板宽度变化时会自动按比例更新高度。",
   "operatorLayoutGuideLabel": "操作员位置示意",
   "operatorLayoutGuideDescription": "这个 URL 仅对当前操作员生效。\n\n[操作员卡片]\n整个卡片内容区域都会显示这里配置的网页。",
   "operatorCardUrlLabel": "操作员卡片内网页地址",
