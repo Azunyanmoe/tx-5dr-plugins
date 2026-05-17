@@ -35,6 +35,14 @@ const STATIC_PANEL_DEFINITIONS = [
     entry: 'voice-left-top-webview.html',
     panel: { slot: 'voice-left-top' as const, width: 'full' as const },
   },
+  {
+    pageId: 'cw-left-top-webview',
+    placement: 'cw-left-top',
+    configKey: 'cwLeftTopUrl',
+    titleKey: 'cwLeftTopPageTitle',
+    entry: 'cw-left-top-webview.html',
+    panel: { slot: 'cw-left-top' as const, width: 'full' as const },
+  },
 ] as const;
 
 const VOICE_RIGHT_DYNAMIC_PAGE_ID = 'voice-right-webview';
@@ -180,7 +188,7 @@ function notifyConfigUpdated(ctx: PluginContext): void {
 
 const plugin: PluginDefinition = {
   name: WEB_IFRAME_EMBED_PLUGIN_NAME,
-  version: '1.2.0',
+  version: '1.2.2',
   type: 'utility',
   description: 'pluginDescription',
 
@@ -232,6 +240,13 @@ const plugin: PluginDefinition = {
       default: '',
       label: 'voiceLeftTopUrlLabel',
       description: 'voiceLeftTopUrlDescription',
+      scope: 'global',
+    },
+    cwLeftTopUrl: {
+      type: 'string',
+      default: '',
+      label: 'cwLeftTopUrlLabel',
+      description: 'cwLeftTopUrlDescription',
       scope: 'global',
     },
     voiceRightTabs: {

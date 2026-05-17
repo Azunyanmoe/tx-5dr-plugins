@@ -3,7 +3,8 @@ export type Placement =
   | 'automation'
   | 'main-right'
   | 'voice-left-top'
-  | 'voice-right-top';
+  | 'voice-right-top'
+  | 'cw-left-top';
 
 export type StreamType = 'hls' | 'file';
 
