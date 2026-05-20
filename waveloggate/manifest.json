@@ -1,0 +1,15 @@
+{
+  "id": "tx5dr-waveloggate",
+  "name": "WaveLogGate for TX-5DR",
+  "version": "2.1.0",
+  "description": "Real-time WaveLog integration plugin for TX-5DR",
+  "author": "BI7ALG",
+  "entry": "index.js",
+  "type": "utility",
+  "license": "MIT",
+  "permissions": [
+    "network",
+    "radio:read"
+  ],
+  "minAppVersion": "1.7.11"
+}
