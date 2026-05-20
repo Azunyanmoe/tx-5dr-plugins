@@ -1,0 +1,12 @@
+{
+  "pluginName": "WaveLogGate for TX-5DR",
+  "pluginDescription": "Synchronize TX-5DR radio frequency and operating mode to WaveLog in real time.",
+  "apiUrlLabel": "WaveLog API URL",
+  "apiUrlDescription": "WaveLog radio API endpoint. If the path is omitted, /index.php/api/radio is appended automatically.",
+  "apiKeyLabel": "API key",
+  "apiKeyDescription": "WaveLog API key used to authorize radio status updates.",
+  "radioNameLabel": "Radio name",
+  "radioNameDescription": "Radio identifier sent to WaveLog with each frequency and mode update.",
+  "pollIntervalLabel": "Polling interval (ms)",
+  "pollIntervalDescription": "How often TX-5DR checks the current radio state and sends changed values to WaveLog."
+}

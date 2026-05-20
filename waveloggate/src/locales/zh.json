@@ -1,0 +1,12 @@
+{
+  "pluginName": "WaveLogGate for TX-5DR",
+  "pluginDescription": "将 TX-5DR 当前电台频率和工作模式实时同步到 WaveLog。",
+  "apiUrlLabel": "WaveLog API URL",
+  "apiUrlDescription": "WaveLog 电台 API 地址。若未包含接口路径，插件会自动追加 /index.php/api/radio。",
+  "apiKeyLabel": "API Key",
+  "apiKeyDescription": "用于向 WaveLog 上报电台状态的 API Key。",
+  "radioNameLabel": "电台名称",
+  "radioNameDescription": "每次向 WaveLog 上报频率和模式时使用的电台标识。",
+  "pollIntervalLabel": "轮询间隔（毫秒）",
+  "pollIntervalDescription": "TX-5DR 检查当前电台状态并向 WaveLog 发送变化值的频率。"
+}

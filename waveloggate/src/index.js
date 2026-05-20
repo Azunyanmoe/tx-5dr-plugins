@@ -156,30 +156,35 @@ async function pollRadio(ctx) {
 }
 
 export default {
-    name: 'WaveLogGate for TX-5DR',
+    name: 'tx5dr-waveloggate',
     version: '2.1.0',
     type: 'utility',
+    description: 'pluginDescription',
     instanceScope: 'operator',
     permissions: ['network', 'radio:read'],
     settings: {
         apiUrl: {
             type: 'string',
-            label: 'WaveLog API URL',
+            label: 'apiUrlLabel',
+            description: 'apiUrlDescription',
             default: 'https://wavelog.karats.com.cn/index.php/api/radio'
         },
         apiKey: {
             type: 'string',
-            label: 'API Key',
+            label: 'apiKeyLabel',
+            description: 'apiKeyDescription',
             default: ''
         },
         radioName: {
             type: 'string',
-            label: '电台名称',
+            label: 'radioNameLabel',
+            description: 'radioNameDescription',
             default: 'TX-5DR'
         },
         pollInterval: {
             type: 'number',
-            label: '轮询间隔 (毫秒)',
+            label: 'pollIntervalLabel',
+            description: 'pollIntervalDescription',
             default: 2000
         }
     },

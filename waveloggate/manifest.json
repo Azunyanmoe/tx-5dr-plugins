@@ -2,9 +2,9 @@
   "id": "tx5dr-waveloggate",
   "name": "WaveLogGate for TX-5DR",
   "version": "2.1.0",
-  "description": "Real-time WaveLog integration plugin for TX-5DR",
+  "description": "Real-time WaveLog radio frequency and mode synchronization for TX-5DR.",
   "author": "BI7ALG",
-  "entry": "index.js",
+  "entry": "src/index.js",
   "type": "utility",
   "license": "MIT",
   "permissions": [
