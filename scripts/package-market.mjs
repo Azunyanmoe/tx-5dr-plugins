@@ -22,6 +22,7 @@ const baseUrl = readFlag('--base-url', 'https://dl.tx5dr.com/plugins/market').re
 const outputDir = path.join(rootDir, '.artifacts', 'market', channel);
 const artifactsDir = path.join(outputDir, 'artifacts');
 const stagingRoot = path.join(rootDir, '.artifacts', 'staging');
+const README_MAX_BYTES = 100 * 1024;
 
 if (!['stable', 'nightly'].includes(channel)) {
   throw new Error(`Unsupported channel: ${channel}`);
@@ -33,6 +34,46 @@ function isObject(value) {
 
 async function readJson(filePath) {
   return JSON.parse(await fs.readFile(filePath, 'utf8'));
+}
+
+async function readPluginReadme(pluginDir) {
+  const readmePath = path.join(pluginDir, 'README.md');
+  if (!await pathExists(readmePath)) {
+    return undefined;
+  }
+
+  const stat = await fs.stat(readmePath);
+  if (stat.size > README_MAX_BYTES) {
+    throw new Error(`README.md is too large for marketplace catalog: ${pluginDir}`);
+  }
+
+  return fs.readFile(readmePath, 'utf8');
+}
+
+function buildReadmeSourceUrl(repository, pluginDir) {
+  if (typeof repository !== 'string' || repository.trim() === '') {
+    return undefined;
+  }
+
+  try {
+    const url = new URL(repository);
+    if (url.hostname !== 'github.com') {
+      return undefined;
+    }
+
+    const [owner, repoNameWithSuffix] = url.pathname
+      .split('/')
+      .filter(Boolean);
+    if (!owner || !repoNameWithSuffix) {
+      return undefined;
+    }
+
+    const repoName = repoNameWithSuffix.replace(/\.git$/i, '');
+    const pluginDirName = path.basename(pluginDir);
+    return `https://github.com/${owner}/${repoName}/blob/main/${pluginDirName}/README.md`;
+  } catch {
+    return undefined;
+  }
 }
 
 async function readLocales(localesDir) {
@@ -151,11 +192,15 @@ async function buildCatalogEntry(pluginDir) {
   const sha256 = createHash('sha256').update(artifactBytes).digest('hex');
   const stat = await fs.stat(zipPath);
   const locales = await readLocales(path.join(stageDir, 'locales'));
+  const readmeMarkdown = await readPluginReadme(pluginDir);
+  const readmeSourceUrl = buildReadmeSourceUrl(meta.repository, pluginDir);
 
   return {
     name: meta.pluginName,
     title: meta.title,
     description: meta.description,
+    readmeMarkdown,
+    readmeSourceUrl,
     locales: Object.keys(locales).length > 0 ? locales : undefined,
     latestVersion: pkg.version,
     minHostVersion: meta.minHostVersion,

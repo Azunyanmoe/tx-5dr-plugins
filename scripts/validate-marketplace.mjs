@@ -4,6 +4,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 
 const rootDir = process.cwd();
+const README_MAX_BYTES = 100 * 1024;
 
 function isObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -77,6 +78,16 @@ async function validateWorkspace(workspaceDir) {
     if (!isObject(item) || typeof item.from !== 'string' || typeof item.to !== 'string') {
       throw new Error(`Workspace ${pkg.name ?? workspaceDir} has invalid tx5drPlugin.include entry`);
     }
+  }
+
+  const readmePath = path.join(workspaceDir, 'README.md');
+  if (!await fileExists(readmePath)) {
+    throw new Error(`Workspace ${pkg.name ?? workspaceDir} must include README.md for marketplace details`);
+  }
+
+  const readmeStat = await fs.stat(readmePath);
+  if (readmeStat.size > README_MAX_BYTES) {
+    throw new Error(`Workspace ${pkg.name ?? workspaceDir} README.md exceeds ${README_MAX_BYTES} bytes`);
   }
 
   const srcIndexExists = await fileExists(path.join(workspaceDir, 'src', 'index.ts'))
