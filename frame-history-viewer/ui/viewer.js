@@ -435,6 +435,12 @@ async function populateDateSelect() {
  */
 async function init() {
   await loadStrings();
+
+  // 窗口模式（modal）下顶部"帧历史"标题与模态窗口标题重复，隐藏以节省空间
+  if (window.tx5dr?.params?.openMode === 'modal') {
+    $('.eyebrow').hidden = true;
+  }
+
   $('#loadingIndicator').textContent = tr('uiLoading');
   $('#emptyIndicator').textContent = tr('uiNoData');
   await populateDateSelect();

@@ -20,6 +20,21 @@ import enLocale from './locales/en.json' with { type: 'json' };
 
 const PLUGIN_NAME = 'frame-history-viewer';
 const PAGE_ID = 'viewer';
+const PANEL_GROUP_ID = 'viewer-entry';
+
+function buildPanelDescriptor(openInModal: boolean) {
+  return [{
+    id: 'history-viewer-button',
+    title: 'historyViewerTitle',
+    component: 'iframe' as const,
+    pageId: PAGE_ID,
+    slot: 'radio-control-toolbar' as const,
+    icon: 'clock-rotate-left',
+    openMode: (openInModal ? 'modal' : 'popover') as 'modal' | 'popover',
+    uiSize: 'lg' as const,
+    params: { openMode: openInModal ? 'modal' : 'popover' },
+  }];
+}
 
 /**
  * 与服务端 SlotPackPersistence.ts 中定义的 SlotPackStorageRecord 等效。
@@ -125,19 +140,21 @@ const plugin: PluginDefinition = {
   version: '1.0.0',
   type: 'utility',
   instanceScope: 'global',         // 全局单例：不需要按操作员分别实例化
-  description: 'pluginDescription', // i18n key，由前端从 plugin:frame-history-viewer 命名空间获取
+  description: 'pluginDescription',
 
-  // 在 RadioControl 顶部工具栏注册按钮入口，点击弹出 iframe 浮层
-  panels: [{
-    id: 'history-viewer-button',
-    title: 'historyViewerTitle',
-    component: 'iframe',
-    pageId: PAGE_ID,
-    slot: 'radio-control-toolbar', // 工具栏入口（仅 global + utility 支持）
-    icon: 'clock-rotate-left',     // FontAwesome Free solid 图标
-    openMode: 'popover',
-    uiSize: 'lg',
-  }],
+  // 面板改为动态注册（由设置 openInModal 控制 openMode），
+  // 不在静态 panels 中声明，避免出现双按钮
+  panels: [],
+
+  settings: {
+    openInModal: {
+      type: 'boolean',
+      default: false,
+      label: 'openInModal',
+      description: 'openInModalDescription',
+      scope: 'global',
+    },
+  },
 
   ui: {
     dir: 'ui',
@@ -150,16 +167,13 @@ const plugin: PluginDefinition = {
     }],
   },
 
-  /**
-   * 插件加载时注册 iframe 页面的消息处理器。
-   * 三个 action 分别对应前端 iframe 的三个 invoke 调用：
-   *
-   * - listDates       → 获取所有可用的日志日期
-   * - loadRecords     → 按日期读取帧记录（支持 limit 分页）
-   * - getLocaleStrings → 前端动态获取当前语言的翻译文本
-   */
   onLoad(ctx: PluginContext) {
     ctx.log.debug('Plugin loaded');
+
+    // 根据当前配置动态创建工具栏面板
+    const openInModal = ctx.config.openInModal === true;
+    ctx.ui.setPanelContributions(PANEL_GROUP_ID, buildPanelDescriptor(openInModal));
+
     ctx.ui.registerPageHandler({
       async onMessage(_pageId: string, action: string, data: unknown) {
         switch (action) {
@@ -181,12 +195,18 @@ const plugin: PluginDefinition = {
     });
   },
 
-  /**
-   * 卸载清理。命名定时器、Bridge session 等由宿主自动管理，
-   * 这里仅记录日志确认卸载事件已触发。
-   */
   onUnload(ctx: PluginContext) {
+    ctx.ui.clearPanelContributions(PANEL_GROUP_ID);
     ctx.log.debug('Plugin unloaded');
+  },
+
+  hooks: {
+    onConfigChange(changes: Record<string, unknown>, ctx: PluginContext) {
+      if ('openInModal' in changes) {
+        const openInModal = changes.openInModal === true;
+        ctx.ui.setPanelContributions(PANEL_GROUP_ID, buildPanelDescriptor(openInModal));
+      }
+    },
   },
 };
 

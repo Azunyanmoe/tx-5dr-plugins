@@ -18,5 +18,7 @@
   "uiSNR": "信噪比",
   "uiFreq": "频率 (Hz)",
   "uiDT": "时偏 (s)",
-  "uiMessage": "消息"
+  "uiMessage": "消息",
+  "openInModal": "窗口模式打开",
+  "openInModalDescription": "开启后工具栏按钮以模态窗口打开帧历史查看器，关闭则以浮层打开"
 }

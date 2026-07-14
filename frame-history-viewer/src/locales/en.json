@@ -18,5 +18,7 @@
   "uiSNR": "SNR",
   "uiFreq": "Freq (Hz)",
   "uiDT": "DT (s)",
-  "uiMessage": "Message"
+  "uiMessage": "Message",
+  "openInModal": "Open in window",
+  "openInModalDescription": "When enabled, opens the frame history viewer as a modal window instead of a popover"
 }
