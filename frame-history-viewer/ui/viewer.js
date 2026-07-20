@@ -31,6 +31,14 @@ let allBandsLabel = 'All bands';
 let cachedTotalSlots = 0;     // 当前日期的总时隙数（用于 summary 栏显示）
 let cachedTotalFrames = 0;    // 当前日期的总帧数
 
+// 分页状态
+let loadGeneration = 0;
+let currentCursor = 0;
+let hasMoreData = false;
+let knownBands = new Set();
+const FIRST_PAGE_SIZE = 100;
+const BACKGROUND_PAGE_SIZE = 500;
+
 const $ = (sel, ctx) => (ctx || document).querySelector(sel);
 const $$ = (sel, ctx) => Array.from((ctx || document).querySelectorAll(sel));
 
@@ -154,15 +162,37 @@ async function loadDates() {
   }
 }
 
-/** 通过 Bridge SDK 加载指定日期的帧记录 */
-async function loadRecords(date) {
+/** 首屏加载：请求第一页数据 */
+async function loadFirstPage(date) {
   try {
-    const result = await invoke('loadRecords', { date });
+    const result = await invoke('loadRecords', { date, limit: FIRST_PAGE_SIZE, cursor: 0 });
+    currentCursor = result.cursor;
+    hasMoreData = result.hasMore;
     return result.records || [];
   } catch (err) {
     showError(tr('uiError') + ': ' + err.message);
     return [];
   }
+}
+
+/** 后台加载：请求下一页数据 */
+async function loadNextPage() {
+  if (!hasMoreData) return [];
+  try {
+    const result = await invoke('loadRecords', {
+      date: currentDate, limit: BACKGROUND_PAGE_SIZE, cursor: currentCursor,
+    });
+    currentCursor = result.cursor;
+    hasMoreData = result.hasMore;
+    return result.records || [];
+  } catch (err) {
+    showError(tr('uiError') + ': ' + err.message);
+    return [];
+  }
+}
+
+function countFrames(records) {
+  return records.reduce((s, r) => s + (r.slotPack?.frames?.length || 0), 0);
 }
 
 /** 显示错误横幅，隐藏其他 UI 状态 */
@@ -301,28 +331,49 @@ function renderSlot(record, filter, expanded) {
   return card;
 }
 
+/** 批量追加 DOM（DocumentFragment），避免回流 */
+function appendRecords(records, filter) {
+  const container = $('#slotList');
+  const expanded = !!filter;
+  const fragment = document.createDocumentFragment();
+  for (const record of records) {
+    fragment.appendChild(renderSlot(record, filter, expanded));
+  }
+  container.appendChild(fragment);
+  updateSummary(allRecords, cachedTotalSlots, cachedTotalFrames);
+}
+
 const debouncedFilter = debounce(applyFilter, 200);
 
 /** 从已加载记录中提取去重并排序的波段列表，填充波段下拉框 */
-function populateBandSelect(records) {
+function populateBandSelect(records, incremental) {
   const select = $('#bandSelect');
-  select.innerHTML = '';
-  select.add(new Option(allBandsLabel, ''));
-  const bands = new Set();
+
+  if (!incremental) {
+    select.innerHTML = '';
+    select.add(new Option(allBandsLabel, ''));
+    knownBands = new Set();
+  }
+
   for (const r of records) {
     const band = r.slotPack?.frequencyContext?.band;
-    if (band) bands.add(band);
+    if (band) knownBands.add(band);
   }
+
   // 波段名优先按数字排序（如 40m 在 20m 前），非数字名按字典序
-  const sorted = Array.from(bands).sort((a, b) => {
+  const sorted = Array.from(knownBands).sort((a, b) => {
     const na = parseInt(a, 10);
     const nb = parseInt(b, 10);
     if (!isNaN(na) && !isNaN(nb)) return na - nb;
     return a.localeCompare(b);
   });
+  const currentValue = select.value;
+  select.innerHTML = '';
+  select.add(new Option(allBandsLabel, ''));
   for (const b of sorted) {
     select.add(new Option(b, b));
   }
+  select.value = currentValue && knownBands.has(currentValue) ? currentValue : '';
 }
 
 /**
@@ -358,38 +409,82 @@ function applyFilter() {
 function renderRecords(records, filter, totalSlots, totalFrames) {
   const container = $('#slotList');
   container.innerHTML = '';
-  updateSummary(records, totalSlots || records.length, totalFrames || records.reduce((s, r) => s + (r.slotPack?.frames?.length || 0), 0));
-
   if (records.length === 0) {
     $('#emptyIndicator').hidden = false;
+    updateSummary(records, 0, 0);
     return;
   }
   $('#emptyIndicator').hidden = true;
-
-  const expanded = !!filter;
-  for (const record of records) {
-    container.appendChild(renderSlot(record, filter, expanded));
-  }
+  appendRecords(records, filter);
 }
 
 /**
  * 加载指定日期的记录并渲染。
  * 过滤掉无帧的空时隙记录，重置过滤条件，刷新波段下拉框。
  */
+async function progressiveLoadRemaining(gen) {
+  while (hasMoreData && gen === loadGeneration) {
+    const batch = await loadNextPage();
+    if (gen !== loadGeneration) return;
+    const filtered = batch.filter(r => (r.slotPack?.frames?.length || 0) > 0);
+    if (filtered.length === 0) continue;
+    allRecords.push(...filtered);
+    cachedTotalSlots += filtered.length;
+    cachedTotalFrames = countFrames(allRecords);
+    populateBandSelect(filtered, true);
+
+    if (currentBand || currentFilter.trim()) {
+      applyFilter();
+    } else {
+      appendRecords(filtered, '');
+    }
+    updateProgressiveIndicator(allRecords.length);
+    await new Promise(r => setTimeout(r, 0));
+  }
+  hideProgressiveIndicator();
+}
+
+function updateProgressiveIndicator(loaded) {
+  let el = $('#progIndicator');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'progIndicator';
+    el.className = 'progressive-indicator';
+    const summaryBar = $('#summaryBar');
+    summaryBar.parentNode.insertBefore(el, summaryBar.nextSibling);
+  }
+  el.textContent = '\u23F3 ' + loaded + '+ ...';
+  el.hidden = false;
+}
+
+function hideProgressiveIndicator() {
+  const el = $('#progIndicator');
+  if (el) el.hidden = true;
+}
+
 async function loadAndRender(date) {
+  loadGeneration++;
+  const gen = loadGeneration;
   currentDate = date;
-  showLoading(true);
-  const raw = await loadRecords(date);
-  allRecords = raw.filter(r => (r.slotPack?.frames?.length || 0) > 0);
-  showLoading(false);
   currentBand = '';
   currentFilter = '';
   $('#searchInput').value = '';
+  knownBands = new Set();
+  showLoading(true);
+
+  const firstPage = await loadFirstPage(date);
+  if (gen !== loadGeneration) return;
+  allRecords = firstPage.filter(r => (r.slotPack?.frames?.length || 0) > 0);
+  showLoading(false);
+  cachedTotalSlots = allRecords.length;
+  cachedTotalFrames = countFrames(allRecords);
   populateBandSelect(allRecords);
   $('#bandSelect').value = '';
-  cachedTotalSlots = allRecords.length;
-  cachedTotalFrames = allRecords.reduce((s, r) => s + (r.slotPack?.frames?.length || 0), 0);
   renderRecords(allRecords, '', cachedTotalSlots, cachedTotalFrames);
+
+  if (hasMoreData) {
+    await progressiveLoadRemaining(gen);
+  }
 }
 
 /**

@@ -99,40 +99,59 @@ async function listDates(): Promise<string[]> {
 }
 
 /**
- * 读取指定日期的 JSONL 日志文件，按行解析 SlotPackStorageRecord。
+ * 读取指定日期的 JSONL 日志文件，支持游标分页。
  *
  * 使用流式读取（createReadStream + readline）避免大文件一次性加载到内存。
  * 遇到格式损坏的行自动跳过，不影响其他有效行的读取。
  *
- * @param dateStr - 日期字符串 "YYYY-MM-DD"
- * @param limit   - 可选最大行数，用于前端初次加载限制传输量
- * @returns 记录数组 + hasMore 标记（当 limit 卡住时提示前端还有更多）
+ * @param dateStr       - 日期字符串 "YYYY-MM-DD"
+ * @param options       - 可选参数对象
+ * @param options.limit - 最大返回记录数（默认 Infinity，向后兼容）
+ * @param options.cursor- 起始行号游标（默认 0）
+ * @returns 记录数组 + 下一游标 + hasMore 标记
  */
-async function loadRecords(dateStr: string, limit?: number): Promise<{ records: SlotPackStorageRecord[]; hasMore: boolean }> {
+async function loadRecords(
+  dateStr: string,
+  options?: { limit?: number; cursor?: number }
+): Promise<{ records: SlotPackStorageRecord[]; cursor: number; hasMore: boolean }> {
   const filePath = join(getFramesLogDir(), `frames-${dateStr}.jsonl`);
   try {
     const s = await stat(filePath);
-    if (!s.isFile()) return { records: [], hasMore: false };
+    if (!s.isFile()) return { records: [], cursor: 0, hasMore: false };
   } catch {
-    return { records: [], hasMore: false };
+    return { records: [], cursor: 0, hasMore: false };
   }
   const records: SlotPackStorageRecord[] = [];
-  const stream = createReadStream(filePath, 'utf-8');
-  const rl = createInterface({ input: stream, crlfDelay: Infinity });
+  const limit = options?.limit ?? Infinity;
+  const cursor = options?.cursor ?? 0;
+  let lineIdx = 0;
+
   try {
-    for await (const line of rl) {
-      if (!line) continue;
-      try {
-        records.push(JSON.parse(line) as SlotPackStorageRecord);
-        if (limit && records.length >= limit) break;
-      } catch {
-        // 跳过格式损坏的行（写文件时部分写入或异常中断可能导致）
+    const stream = createReadStream(filePath, 'utf-8');
+    const rl = createInterface({ input: stream, crlfDelay: Infinity });
+    try {
+      for await (const line of rl) {
+        if (lineIdx++ < cursor) continue;
+        if (!line) continue;
+        try {
+          records.push(JSON.parse(line) as SlotPackStorageRecord);
+          if (limit !== Infinity && records.length >= limit) break;
+        } catch {
+          // 跳过格式损坏的行
+        }
       }
+    } finally {
+      rl.close();
     }
-  } finally {
-    rl.close();
+  } catch {
+    return { records: [], cursor: 0, hasMore: false };
   }
-  return { records, hasMore: !!limit && records.length >= limit };
+
+  return {
+    records,
+    cursor: lineIdx,
+    hasMore: limit !== Infinity && records.length >= limit,
+  };
 }
 
 const plugin: PluginDefinition = {
@@ -180,9 +199,11 @@ const plugin: PluginDefinition = {
           case 'listDates':
             return { dates: await listDates() };
           case 'loadRecords': {
-            const { date, limit } = data as { date: string; limit?: number };
-            const { records, hasMore } = await loadRecords(date, limit);
-            return { date, records, total: records.length, hasMore };
+            const { date, limit, cursor } = data as {
+              date: string; limit?: number; cursor?: number;
+            };
+            const result = await loadRecords(date, { limit, cursor });
+            return { date, ...result };
           }
           case 'getLocaleStrings': {
             const { locale } = data as { locale: string };

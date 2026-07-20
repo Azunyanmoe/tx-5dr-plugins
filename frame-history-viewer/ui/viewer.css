@@ -208,6 +208,8 @@ body {
   border-radius: var(--tx5dr-radius-md, 12px);
   margin: 0 14px var(--tx5dr-spacing-sm, 8px);
   overflow: hidden;
+  content-visibility: auto;
+  contain-intrinsic-size: 48px;
 }
 
 .slot-header {
@@ -337,6 +339,14 @@ body {
   color: var(--tx5dr-text-secondary, #a1a1aa);
   font-size: 11px;
   padding: 20px 12px;
+  text-align: center;
+}
+
+/* --- 进度指示器 --- */
+.progressive-indicator {
+  color: var(--tx5dr-text-secondary, #a1a1aa);
+  font-size: 11px;
+  padding: 6px 14px;
   text-align: center;
 }
 
