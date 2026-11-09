@@ -216,6 +216,7 @@ export async function loadRecords(
 const plugin: PluginDefinition = {
   name: PLUGIN_NAME,
   version: '1.0.0',
+  minPluginApiVersion: '2.6.0',
   type: 'utility',
   instanceScope: 'global',         // 全局单例：不需要按操作员分别实例化
   description: 'pluginDescription',
