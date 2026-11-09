@@ -61,13 +61,13 @@ describe('webhook-push integration', () => {
   it('onLoad restarts timers without errors', () => {
     const { fetchFn } = createMockFetch();
     const ctx = makeContext(baseConfig, fetchFn);
-    expect(() => plugin.onLoad(ctx)).not.toThrow();
+    expect(() => plugin.onLoad!(ctx)).not.toThrow();
   });
 
   it('queues decoded messages and flushes them to every enabled target', async () => {
     const { fetchFn, calls } = createMockFetch();
     const ctx = makeContext(baseConfig, fetchFn);
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     const messages = [
       { snr: -10, dt: 0.1, df: 0.2, rawMessage: 'CQ K1ABC FN42', message: { type: 'cq', senderCallsign: 'K1ABC' } },
@@ -153,7 +153,7 @@ describe('webhook-push integration', () => {
       retryCount: 1,
     };
     const ctx = makeContext(singleTargetConfig, fetchFn);
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     plugin.hooks?.onDecode?.([{ rawMessage: 'CQ K1ABC' }] as never, ctx);
     await internals.flush(ctx);
@@ -170,7 +170,7 @@ describe('webhook-push integration', () => {
       () => new Response('nope', { status: 500, statusText: 'Server Error' }),
     ]);
     const ctx = makeContext({ ...baseConfig, retryCount: 1 }, fetchFn);
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     plugin.hooks?.onDecode?.([{ rawMessage: 'CQ K1ABC' }] as never, ctx);
     await internals.flush(ctx);
@@ -182,7 +182,7 @@ describe('webhook-push integration', () => {
   it('sends a test event when a row action fires and returns a structured result', async () => {
     const { fetchFn, calls } = createMockFetch();
     const ctx = makeContext(baseConfig, fetchFn);
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     const result = await plugin.hooks?.onUserAction?.('test:0', undefined, ctx);
 
@@ -202,18 +202,18 @@ describe('webhook-push integration', () => {
       () => new Response('nope', { status: 502, statusText: 'Bad Gateway' }),
     ]);
     const ctx = makeContext({ ...baseConfig, retryCount: 2 }, fetchFn);
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     const result = await plugin.hooks?.onUserAction?.('test:0', undefined, ctx);
 
     expect(result).toMatchObject({ ok: false, messageKey: 'testFail' });
-    expect((result as { params?: Record<string, unknown> }).params?.target).toBe('Primary');
+    expect((result as unknown as { params?: Record<string, unknown> }).params?.target).toBe('Primary');
   });
 
   it('blocks test actions while the master switch is off (no external requests)', async () => {
     const { fetchFn, calls } = createMockFetch();
     const ctx = makeContext({ ...baseConfig, enabled: false }, fetchFn);
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     const row = await plugin.hooks?.onUserAction?.('test:0', undefined, ctx);
     expect(row).toMatchObject({ ok: false, messageKey: 'testDisabled' });
@@ -229,7 +229,7 @@ describe('webhook-push integration', () => {
     const ctx = makeContext({ ...baseConfig, batchWindowSec: 99999, maxBatchSize: 0, retryCount: -5 }, fetchFn);
     const setSpy = vi.spyOn(ctx.timers, 'set');
 
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     // 99999 → 60s 上限
     expect(setSpy).toHaveBeenCalledWith('flush', 60000);
@@ -238,7 +238,7 @@ describe('webhook-push integration', () => {
   it('deduplicates repeated test actions within the window', async () => {
     const { fetchFn, calls } = createMockFetch();
     const ctx = makeContext(baseConfig, fetchFn);
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     await plugin.hooks?.onUserAction?.('test:0', undefined, ctx);
     await plugin.hooks?.onUserAction?.('test:0', undefined, ctx);
@@ -258,8 +258,8 @@ describe('webhook-push integration', () => {
     const ctxA = makeContext(baseConfig, fetchA);
     const { fetchFn: fetchB, calls: callsB } = createMockFetch();
     const ctxB = makeContext(baseConfig, fetchB);
-    plugin.onLoad(ctxA);
-    plugin.onLoad(ctxB);
+    plugin.onLoad!(ctxA);
+    plugin.onLoad!(ctxB);
 
     await plugin.hooks?.onUserAction?.('test:0', undefined, ctxA);
     await plugin.hooks?.onUserAction?.('test:0', undefined, ctxB);
@@ -285,7 +285,7 @@ describe('webhook-push integration', () => {
         { ...baseConfig.targets[0], name: 'Third', webhookUrl: 'https://example.com/hook-c' },
       ],
     }, fetchFn);
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     plugin.hooks?.onDecode?.([{ rawMessage: 'CQ K1ABC' }] as never, ctx);
     await internals.flush(ctx);
@@ -307,7 +307,7 @@ describe('webhook-push integration', () => {
       webhookUrl: `https://example.com/hook-${index + 1}`,
     }));
     const ctx = makeContext({ ...baseConfig, targets }, fetchFn);
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     plugin.hooks?.onDecode?.([{ rawMessage: 'CQ K1ABC' }] as never, ctx);
     await internals.flush(ctx);
@@ -330,7 +330,7 @@ describe('webhook-push integration', () => {
       webhookUrl: `https://example.com/hook-${index + 1}`,
     }));
     const ctx = makeContext({ ...baseConfig, targets }, fetchFn);
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     const result = await plugin.hooks?.onUserAction?.('sendTestAll', undefined, ctx);
 
@@ -346,7 +346,7 @@ describe('webhook-push integration', () => {
       webhookUrl: `https://example.com/hook-${index + 1}`,
     }));
     const ctx = makeContext({ ...baseConfig, targets }, fetchFn);
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     const result = await plugin.hooks?.onUserAction?.('test:5', undefined, ctx);
 
@@ -364,7 +364,7 @@ describe('webhook-push integration', () => {
       targets: [{ ...baseConfig.targets[0], targetId: 'target-primary' }],
     }, fetchFn);
     const updateConfigSpy = vi.spyOn(ctx, 'updateConfig');
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     for (let index = 0; index < 10; index += 1) {
       plugin.hooks?.onDecode?.([{ rawMessage: `CQ K1ABC ${index}` }] as never, ctx);
@@ -393,7 +393,7 @@ describe('webhook-push integration', () => {
       retryCount: 1,
       targets: [{ ...baseConfig.targets[0], targetId: 'target-primary' }],
     }, fetchFn);
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     for (let index = 0; index < 10; index += 1) {
       plugin.hooks?.onDecode?.([{ rawMessage: `CQ K1ABC failed ${index}` }] as never, ctx);
@@ -414,7 +414,7 @@ describe('webhook-push integration', () => {
   it('skips GET targets whose payload would exceed the URL size limit', async () => {
     const { fetchFn, calls } = createMockFetch();
     const ctx = makeContext(baseConfig, fetchFn);
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     const hugeMessage = `CQ K1ABC ${'X'.repeat(5000)}`;
     plugin.hooks?.onDecode?.([{ rawMessage: hugeMessage }] as never, ctx);
@@ -440,7 +440,7 @@ describe('webhook-push integration', () => {
         baseConfig.targets[1],
       ],
     }, fetchFn);
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     plugin.hooks?.onDecode?.([{ rawMessage: 'CQ K1ABC' }] as never, ctx);
     await internals.flush(ctx);
@@ -462,7 +462,7 @@ describe('webhook-push integration', () => {
         baseConfig.targets[1],
       ],
     }, fetchFn);
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     plugin.hooks?.onDecode?.([{ rawMessage: 'CQ K1ABC' }] as never, ctx);
     await internals.flush(ctx);
@@ -481,7 +481,7 @@ describe('webhook-push integration', () => {
       () => new Response('{"ok":true}', { status: 200 }),
     ]);
     const ctx = makeContext({ ...baseConfig, maxBatchSize: 1 }, fetchFn);
-    plugin.onLoad(ctx);
+    plugin.onLoad!(ctx);
 
     plugin.hooks?.onDecode?.([{ rawMessage: 'CQ K1ABC' }] as never, ctx);
     plugin.hooks?.onFrequencyChange?.({ frequency: 7_074_000, band: '40m' } as never, ctx);

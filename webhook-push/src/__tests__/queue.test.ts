@@ -10,6 +10,7 @@ import {
   redactUrlDisplay,
   renderRequest,
   takeBatch,
+  type ParsedTarget,
   type QueuedEvent,
 } from '../queue.js';
 
@@ -206,7 +207,7 @@ const renderCtx = {
 
 describe('renderRequest', () => {
   const events = [baseEvent({ type: 'decode', data: { a: 1 } })];
-  const target = { name: 't', webhookUrl: 'https://example.com/hook', method: 'POST' as const, enabled: true };
+  const target: ParsedTarget = { name: 't', webhookUrl: 'https://example.com/hook', method: 'POST', headers: {}, events: ['decode'], enabled: true };
 
   it('renders the json payload for POST requests', () => {
     const request = renderRequest(target, events, renderCtx);
