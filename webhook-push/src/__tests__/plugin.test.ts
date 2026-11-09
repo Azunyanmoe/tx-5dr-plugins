@@ -335,7 +335,7 @@ describe('webhook-push integration', () => {
     const result = await plugin.hooks?.onUserAction?.('sendTestAll', undefined, ctx);
 
     expect(calls).toHaveLength(5);
-    expect(result).toMatchObject({ ok: true, messageKey: 'testAllOk', params: { count: '5' } });
+    expect(result).toMatchObject({ ok: true, messageKey: 'testAllOk', params: { sent: '5' } });
   });
 
   it('rejects row test actions beyond the configured target limit', async () => {
@@ -379,6 +379,41 @@ describe('webhook-push integration', () => {
     expect(updateConfigSpy).toHaveBeenLastCalledWith({
       targets: [expect.objectContaining({ enabled: false })],
     });
+  });
+
+  it('publishes delivery status to the log panel as text lines', async () => {
+    const { fetchFn } = createMockFetch(
+      Array.from({ length: 11 }, () => () => new Response('nope', { status: 500, statusText: 'Server Error' })),
+    );
+    const ctx = makeContext({
+      ...baseConfig,
+      retryCount: 0,
+      targets: [{ ...baseConfig.targets[0], targetId: 'target-primary' }],
+    }, fetchFn);
+    plugin.onLoad!(ctx);
+    for (let index = 0; index < 11; index += 1) {
+      plugin.hooks?.onDecode?.([{ rawMessage: `CQ K1ABC ${index}` }] as never, ctx);
+      await internals.flush(ctx);
+    }
+
+    // The Host 'log' panel renders entries as React text; objects would crash the UI.
+    const sent = ctx.ui._sentData.get('delivery-status') ?? [];
+    const latest = sent[sent.length - 1] as unknown[];
+    expect(latest.length).toBeGreaterThan(0);
+    expect(latest.every((line) => typeof line === 'string')).toBe(true);
+    expect(latest[0]).toMatch(/^\[.+\] error: /);
+  });
+
+  it('delivers queued events before the flush timer hook settles', async () => {
+    const { fetchFn, calls } = createMockFetch();
+    const ctx = makeContext(baseConfig, fetchFn);
+    plugin.onLoad!(ctx);
+    plugin.hooks?.onDecode?.([{ rawMessage: 'CQ K1ABC FN42' }] as never, ctx);
+
+    // The Host revokes ctx once a hook settles, so the delivery must finish inside it.
+    await plugin.hooks?.onTimer?.('flush', ctx);
+
+    expect(calls).toHaveLength(2);
   });
 
   it('counts a retried delivery once and clears failures after a success', async () => {

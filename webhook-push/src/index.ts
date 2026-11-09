@@ -218,7 +218,11 @@ function publishDeliveryStatus(ctx: WebhookContext, entry?: DeliveryStatusEntry)
   if (entry) {
     ctx.store.operator.set(DELIVERY_STATUS_KEY, entries);
   }
-  ctx.ui.send(DELIVERY_STATUS_PANEL_ID, entries);
+  // The Host 'log' panel renders each entry as text, so send display strings.
+  ctx.ui.send(
+    DELIVERY_STATUS_PANEL_ID,
+    entries.map((item) => `[${item.timestamp}] ${item.level}: ${item.message}`),
+  );
 }
 
 async function disableFailedTarget(ctx: WebhookContext, target: ParsedTarget, consecutive: number): Promise<void> {
@@ -436,20 +440,15 @@ async function handleUserAction(actionId: string, _payload: unknown, ctx: Webhoo
       return { ok: true, messageKey: 'testDeduped' };
     }
     const targets = readTargets(ctx);
-    let sent = 0;
-    let firstError: string | undefined;
-    for (const target of targets) {
-      const result = await sendTestEvent(ctx, target);
-      if (result.ok) {
-        sent += 1;
-      } else {
-        firstError ??= result.error;
-      }
-    }
+    // Send in parallel so several slow targets still answer within the Host hook budget.
+    const results = await Promise.all(targets.map((target) => sendTestEvent(ctx, target)));
+    const sent = results.filter((result) => result.ok).length;
+    const firstError = results.find((result) => !result.ok)?.error;
+    // `count` is reserved by the Host's i18n params, so the locale strings use `sent`.
     if (sent === targets.length) {
-      return { ok: true, messageKey: 'testAllOk', params: { count: String(sent) } };
+      return { ok: true, messageKey: 'testAllOk', params: { sent: String(sent) } };
     }
-    return { ok: false, messageKey: 'testAllFail', params: { count: String(sent), error: firstError ?? 'unknown' } };
+    return { ok: false, messageKey: 'testAllFail', params: { sent: String(sent), error: firstError ?? 'unknown' } };
   }
   if (actionId.startsWith(TEST_ACTION_PREFIX)) {
     const index = Number(actionId.slice(TEST_ACTION_PREFIX.length));
@@ -675,21 +674,26 @@ const webhookPushPlugin: WebhookDefinition = {
       });
     },
 
-    onTimer(timerId, ctx) {
+    async onTimer(timerId, ctx) {
       if (timerId === FLUSH_TIMER_ID) {
-        // flush 内 renderRequest 的 JSON.stringify 可能因不可序列化数据拒绝，
-        // 捕获后仅记日志，避免未处理拒绝泄漏到宿主。
-        void flush(ctx).catch((error) => {
+        // Await inside the hook: the Host revokes ctx (config, fetch, store) once the
+        // hook settles. The flush time budget keeps this within the hook timeout.
+        // flush 内 renderRequest 的 JSON.stringify 可能因不可序列化数据拒绝，捕获后仅记日志。
+        try {
+          await flush(ctx);
+        } catch (error) {
           ctx.log.error('webhook-push: flush failed', {
             error: error instanceof Error ? error.message : String(error),
           });
-        });
+        }
       }
     },
 
     onUserAction: handleUserAction as unknown as NonNullable<WebhookDefinition['hooks']>['onUserAction'],
 
     onConfigChange(_changes, ctx) {
+      // Rows added in the settings UI need stable target IDs as well.
+      runtimeState(ctx).targetIdsReady = undefined;
       restartTimers(ctx);
     },
   },

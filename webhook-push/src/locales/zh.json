@@ -34,8 +34,8 @@
   "sendTestAllDesc": "向所有已启用目标发送测试事件。",
   "testOk": "测试发送成功（目标 {{target}}，HTTP {{status}}）",
   "testFail": "测试发送失败（目标 {{target}}）：{{error}}",
-  "testAllOk": "测试事件已发送到 {{count}} 个目标",
-  "testAllFail": "有目标测试失败（成功 {{count}} 个）：{{error}}",
+  "testAllOk": "测试事件已发送到 {{sent}} 个目标",
+  "testAllFail": "有目标测试失败（成功 {{sent}} 个）：{{error}}",
   "testDeduped": "该测试请求已在短时间内发出，已忽略重复点击。",
   "testDisabled": "插件已禁用（enabled 关闭），未发送测试事件。",
   "testNotFound": "目标 #{{index}} 不存在或未启用。"

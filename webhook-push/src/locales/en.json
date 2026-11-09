@@ -34,8 +34,8 @@
   "sendTestAllDesc": "Send a test event to every enabled target.",
   "testOk": "Test sent successfully (target {{target}}, HTTP {{status}})",
   "testFail": "Test delivery failed (target {{target}}): {{error}}",
-  "testAllOk": "Test event sent to {{count}} target(s)",
-  "testAllFail": "Some targets failed the test ({{count}} ok): {{error}}",
+  "testAllOk": "Test event sent to {{sent}} target(s)",
+  "testAllFail": "Some targets failed the test ({{sent}} ok): {{error}}",
   "testDeduped": "Duplicate test request ignored (already sent recently).",
   "testDisabled": "Plugin is disabled (enabled off); test event not sent.",
   "testNotFound": "Target #{{index}} was not found or is disabled."
