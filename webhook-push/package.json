@@ -19,7 +19,7 @@
     "title": "Webhook Push",
     "description": "Push FT8/FT4 decode, QSO lifecycle and station events to multiple webhook endpoints with per-target method and payload formats.",
     "minPluginApiVersion": "2.7.0",
-    "author": "TX-5DR",
+    "author": "Azunyanmoe",
     "license": "GPL-3.0-only",
     "repository": "https://github.com/boybook/tx-5dr-plugins",
     "homepage": "https://tx5dr.com/plugins/webhook-push",
