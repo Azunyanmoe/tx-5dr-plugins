@@ -1,4 +1,4 @@
-import type { PluginDefinition, PluginContext } from '@tx5dr/plugin-api';
+import type { PluginContextFor, PluginDefinition } from '@tx5dr/plugin-api';
 import {
   filterEvent,
   formatSummary,
@@ -38,7 +38,9 @@ const MAX_GET_URL_LENGTH = 8_000;
 /** Per-operator guard: repeated test actions within the window are collapsed. */
 const DEDUP_WINDOW_MS = 10_000;
 
-type WebhookContext = PluginContext;
+type WebhookPermissions = readonly ['network'];
+type WebhookContext = PluginContextFor<WebhookPermissions>;
+type WebhookDefinition = PluginDefinition<WebhookPermissions>;
 
 interface RuntimeState {
   queue: QueuedEvent[];
@@ -57,7 +59,8 @@ interface DeliveryStatusEntry {
   timestamp: string;
 }
 
-const states = new WeakMap<WebhookContext, RuntimeState>();
+// Keyed by object: onUnload receives the same context as a PluginCleanupContext.
+const states = new WeakMap<object, RuntimeState>();
 
 function runtimeState(ctx: WebhookContext): RuntimeState {
   let state = states.get(ctx);
@@ -567,11 +570,12 @@ const settings = {
     min: 0,
     max: 5,
   },
-} as unknown as PluginDefinition['settings'];
+} as unknown as WebhookDefinition['settings'];
 
-const webhookPushPlugin: PluginDefinition = {
+const webhookPushPlugin: WebhookDefinition = {
   name: 'webhook-push',
   version: PLUGIN_VERSION,
+  minPluginApiVersion: '2.7.0',
   type: 'utility',
   instanceScope: 'operator',
   description: 'pluginDescription',
@@ -683,7 +687,7 @@ const webhookPushPlugin: PluginDefinition = {
       }
     },
 
-    onUserAction: handleUserAction as unknown as NonNullable<PluginDefinition['hooks']>['onUserAction'],
+    onUserAction: handleUserAction as unknown as NonNullable<WebhookDefinition['hooks']>['onUserAction'],
 
     onConfigChange(_changes, ctx) {
       restartTimers(ctx);
